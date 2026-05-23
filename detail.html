@@ -1,1 +1,308 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tool Detail - ToolNova</title>
+<meta name="description" content="ToolNova tool detail page for free and open-source alternatives.">
+<link rel="stylesheet" href="style.css">
 
+<style>
+.page{
+  max-width:960px;
+  margin:0 auto;
+  padding:28px;
+}
+
+.lang-switcher{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin:20px 0;
+}
+
+.lang-switcher button{
+  padding:8px 14px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.2);
+  background:rgba(255,255,255,.08);
+  color:inherit;
+  cursor:pointer;
+}
+
+.lang-switcher button.active{
+  background:#2563eb;
+  color:#fff;
+  border-color:#2563eb;
+}
+
+.content li{
+  margin:8px 0;
+}
+
+.back-link{
+  display:inline-block;
+  margin-bottom:16px;
+  text-decoration:none;
+}
+</style>
+</head>
+
+<body>
+<header class="topbar">
+  <a class="brand" href="./">
+    <span>◎</span>
+    <strong>ToolNova</strong>
+  </a>
+</header>
+
+<main class="page">
+  <a class="back-link" href="./index.html">← Back Home</a>
+
+  <div class="lang-switcher">
+    <button data-btn="zh" onclick="setLang('zh')">中文</button>
+    <button data-btn="en" onclick="setLang('en')">English</button>
+    <button data-btn="ja" onclick="setLang('ja')">日本語</button>
+    <button data-btn="vi" onclick="setLang('vi')">Tiếng Việt</button>
+  </div>
+
+  <div id="detailBox">Loading...</div>
+</main>
+
+<script type="module">
+import { fallbackTools } from './tools-data.js';
+import { db } from './firebase.js';
+import {
+  collection,
+  getDocs
+} from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js';
+
+const params = new URLSearchParams(location.search);
+const slug = (params.get('slug') || '').trim().toLowerCase();
+
+let currentLang =
+  localStorage.getItem('fta_detail_lang') ||
+  localStorage.getItem('fta_lang') ||
+  'zh';
+
+let currentTool = null;
+
+const esc = value => String(value ?? '').replace(/[&<>'"]/g, m => ({
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  "'": '&#39;',
+  '"': '&quot;'
+}[m]));
+
+function safeWebsite(url){
+  return /^https?:\/\//i.test(url || '') ? url : '#';
+}
+
+function getText(tool, lang){
+  const name = tool.name || 'Tool';
+  const category = tool.category || 'Tool';
+  const desc = tool.description || '';
+
+  const data = {
+    zh: {
+      visit: '打开官网',
+      what: `${name} 是什么？`,
+      summary: `${name} 是一个适合 ${category} 场景的免费或开源替代工具。`,
+      features: '核心功能',
+      pros: '优点',
+      cons: '缺点',
+      seo: 'SEO关键词',
+      featureItems: [
+        '免费或开源替代方案',
+        `适合 ${category} 使用场景`,
+        '适合工具导航与 SEO 收录'
+      ],
+      prosItems: [
+        '成本低，容易开始使用',
+        '官网稳定，适合长期收录',
+        '适合学生、创作者、开发者或办公用户'
+      ],
+      consItems: [
+        '部分高级功能可能不如商业软件完整',
+        '具体体验取决于用户设备和使用场景'
+      ],
+      keywords: `${name} 教程，${name} 替代工具，免费 ${category} 工具，开源软件平替。`
+    },
+
+    en: {
+      visit: 'Visit Official Website',
+      what: `What is ${name}?`,
+      summary: desc || `${name} is a useful free or open-source alternative tool for ${category}.`,
+      features: 'Main Features',
+      pros: 'Pros',
+      cons: 'Cons',
+      seo: 'SEO Keywords',
+      featureItems: [
+        'Free or open-source alternative',
+        `Useful for ${category} workflows`,
+        'Good for tool directories and SEO pages'
+      ],
+      prosItems: [
+        'Low cost and easy to try',
+        'Stable official website',
+        'Suitable for students, creators, developers or office users'
+      ],
+      consItems: [
+        'Some advanced features may be limited',
+        'Experience depends on workflow and device'
+      ],
+      keywords: `${name} tutorial, ${name} alternative, free ${category} tool, open-source software alternative.`
+    },
+
+    ja: {
+      visit: '公式サイトを開く',
+      what: `${name} とは？`,
+      summary: `${name} は ${category} 分野で使える無料またはオープンソースの代替ツールです。`,
+      features: '主な機能',
+      pros: 'メリット',
+      cons: 'デメリット',
+      seo: 'SEOキーワード',
+      featureItems: [
+        '無料またはオープンソースの代替ツール',
+        `${category} 用途に適しています`,
+        'ツールナビや SEO ページに適しています'
+      ],
+      prosItems: [
+        '低コストで始めやすい',
+        '公式サイトが安定しています',
+        '学生、クリエイター、開発者にも向いています'
+      ],
+      consItems: [
+        '一部高度な機能は限定的な場合があります',
+        '使用感は環境や用途によって変わります'
+      ],
+      keywords: `${name} 使い方，${name} 代替，無料 ${category} ツール，オープンソース代替ソフト。`
+    },
+
+    vi: {
+      visit: 'Mở website chính thức',
+      what: `${name} là gì?`,
+      summary: `${name} là công cụ miễn phí hoặc mã nguồn mở phù hợp cho nhóm ${category}.`,
+      features: 'Tính năng chính',
+      pros: 'Ưu điểm',
+      cons: 'Nhược điểm',
+      seo: 'Từ khóa SEO',
+      featureItems: [
+        'Công cụ thay thế miễn phí hoặc mã nguồn mở',
+        `Phù hợp cho nhu cầu ${category}`,
+        'Phù hợp cho danh mục công cụ và SEO'
+      ],
+      prosItems: [
+        'Chi phí thấp và dễ bắt đầu',
+        'Website chính thức ổn định',
+        'Phù hợp với học sinh, creator, developer hoặc người dùng văn phòng'
+      ],
+      consItems: [
+        'Một số tính năng nâng cao có thể hạn chế',
+        'Trải nghiệm phụ thuộc vào thiết bị và nhu cầu sử dụng'
+      ],
+      keywords: `Hướng dẫn ${name}, công cụ thay thế ${name}, công cụ ${category} miễn phí, phần mềm mã nguồn mở thay thế.`
+    }
+  };
+
+  return data[lang] || data.zh;
+}
+
+function renderDetail(){
+  if (!currentTool) return;
+
+  const t = getText(currentTool, currentLang);
+
+  document.title = `${currentTool.name} - ToolNova`;
+  document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : currentLang;
+
+  document.querySelectorAll('[data-btn]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.btn === currentLang);
+  });
+
+  document.getElementById('detailBox').innerHTML = `
+    <section class="hero">
+      <span class="badge">${esc(currentTool.type || currentTool.category || 'Tool')}</span>
+      <h1>${esc(currentTool.name)}</h1>
+      <p class="subtitle">${esc(t.summary)}</p>
+
+      <div class="hero-actions">
+        <a class="btn" href="${esc(safeWebsite(currentTool.website))}" target="_blank" rel="noopener noreferrer">
+          ${esc(t.visit)}
+        </a>
+      </div>
+    </section>
+
+    <section class="content">
+      <h2>${esc(t.what)}</h2>
+      <p>${esc(currentTool.description || t.summary)}</p>
+
+      <h2>${esc(t.features)}</h2>
+      <ul>
+        ${t.featureItems.map(x => `<li>${esc(x)}</li>`).join('')}
+      </ul>
+
+      <h2>${esc(t.pros)}</h2>
+      <ul>
+        ${t.prosItems.map(x => `<li>${esc(x)}</li>`).join('')}
+      </ul>
+
+      <h2>${esc(t.cons)}</h2>
+      <ul>
+        ${t.consItems.map(x => `<li>${esc(x)}</li>`).join('')}
+      </ul>
+
+      <h2>${esc(t.seo)}</h2>
+      <p>${esc(t.keywords)}</p>
+    </section>
+  `;
+}
+
+window.setLang = function(lang){
+  currentLang = lang;
+  localStorage.setItem('fta_detail_lang', lang);
+  renderDetail();
+};
+
+async function loadTool(){
+  let list = fallbackTools || [];
+
+  try {
+    const snapshot = await getDocs(collection(db, 'tools'));
+
+    const firestoreTools = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    if (firestoreTools.length) {
+      list = firestoreTools;
+    }
+  } catch (err) {
+    console.warn('Firestore detail load failed:', err);
+  }
+
+  currentTool =
+    list.find(tool => String(tool.slug || '').toLowerCase() === slug) ||
+    list.find(tool => String(tool.id || '').toLowerCase() === slug) ||
+    list.find(tool => String(tool.name || '').toLowerCase() === slug);
+
+  if (!currentTool) {
+    document.getElementById('detailBox').innerHTML = `
+      <section class="panel">
+        <h1>Tool not found</h1>
+        <p>没有找到这个工具，请检查 URL 里的 slug。</p>
+        <p>当前 slug：${esc(slug)}</p>
+      </section>
+    `;
+    return;
+  }
+
+  renderDetail();
+}
+
+loadTool();
+</script>
+</body>
+</html>
