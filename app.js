@@ -63,7 +63,7 @@ function renderTools(){
       <div class="meta">${esc(tool.category || 'Other')} · ${esc(tool.slug || '')}</div>
       <div class="actions">
         <a href="${esc(website(tool.website))}" target="_blank" rel="noopener noreferrer">${t('visit')}</a>
-        <a href="pages/${esc(tool.slug || 'tool')}.html">${t('detail')}</a>
+       <a href="detail.html?slug=${esc(tool.slug || tool.id || 'tool')}">${t('detail')}</a>
       </div>
     </article>
   `).join('') || `<p class="empty">${t('empty')}</p>`;
